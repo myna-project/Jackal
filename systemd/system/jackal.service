@@ -1,0 +1,16 @@
+[Unit]
+Description=Jackal JeerpDa text files bridge
+After=syslog.target
+
+[Service]
+Type=simple
+User=nobody
+Group=nogroup
+WorkingDirectory=/opt/jackal
+ExecStart=/opt/jackal/jackal.py
+StandardOutput=syslog
+StandardError=syslog
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
