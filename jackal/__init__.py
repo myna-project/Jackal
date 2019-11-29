@@ -3,7 +3,7 @@
 
 Jackal is a modular python parser and IEnergyDa (IEnergy Data aggregator) REST
 client. It has been developed to address the specific need of parsing text
-files from various energy gateways and data logger and send the parsed data
+files from various energy gateways and data loggers and send the parsed data
 in JSON format via HTTP(s) to the IEnergyDa backend. It has been released
 as an open-source project in November 2019.
 
