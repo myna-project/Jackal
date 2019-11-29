@@ -1,5 +1,5 @@
 [Unit]
-Description=Jackal JeerpDa text files bridge
+Description=Jackal modular python parser and IEnergyDa REST client
 After=syslog.target
 
 [Service]
