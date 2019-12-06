@@ -3,7 +3,7 @@
 
 Jackal is a modular python parser and IEnergyDa (IEnergy Data aggregator) REST
 client. It has been developed to address the specific need of parsing text
-files from various energy gateways and data loggers and send the parsed data
+files from various energy gateways and data logger and send the parsed data
 in JSON format via HTTP(s) to the IEnergyDa backend. It has been released
 as an open-source project in November 2019.
 
@@ -47,7 +47,6 @@ from requests.packages.urllib3.util.retry import Retry
 from requests.exceptions import ConnectionError, ConnectTimeout, HTTPError, Timeout, ReadTimeout
 import schedule
 import signal
-import shutil
 import threading
 import time
 import zipfile
@@ -422,11 +421,19 @@ class JWebUpdate():
         if not gitresp:
             logger.error('Repository %s empty, cannot update!' % repo['repository'])
             return False
-        gitlast = gitresp[0]
-        logger.debug('Repository %s (online version: %s installed version: %s)' % (repo['repository'], gitlast['name'], repo['version']))
-        if (gitlast['name'] != repo['version']) or force:
+        gitlast = None
+        while gitresp:
+            gitlast = gitresp.pop()
+            if not gitlast.get('prerelease', False):
+                break
+        if not gitlast:
+            logger.error('In repository %s there aren\'t stable releases, cannot update!' % repo['repository'])
+            return False
+        name = gitlast.get('name') or gitlast.get('tag_name')
+        logger.debug('Repository %s (online version: %s installed version: %s)' % (repo['repository'], name, repo['version']))
+        if (name > repo['version']) or force:
             logger.info('Online repository %s newer than local %s: updating...' % (repo['repository'], __name__))
-            url = gitlast['zipball_url']
+            url = gitlast.get('zipball_url')
             logger.debug('Downloading %s' % url)
             try:
                 response = client.get(url)
@@ -437,7 +444,7 @@ class JWebUpdate():
                 logger.error('Cannot download %s %s' % (url, response.text.splitlines()))
                 return False
             buffer = io.BytesIO(response.content)
-            logger.debug("Downloaded %s size: %d bytes" % (gitlast['zipball_url'], buffer.getbuffer().nbytes))
+            logger.debug("Downloaded %s size: %d bytes" % (url, buffer.getbuffer().nbytes))
             if self.__unzip(buffer, repo['import']):
                 logger.info('%s up to date' % __name__)
                 return True

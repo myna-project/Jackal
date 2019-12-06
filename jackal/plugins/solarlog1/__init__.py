@@ -13,7 +13,6 @@ class solarlog1():
         requests = []
         names = ['Pac', 'DaySum', 'Status', 'Error', 'Pdc1', 'Pdc2', 'Udc1', 'Udc2', 'Temp', 'Uac']
         l = len(names) + 1
-        tz = get_localzone()
         for row in lines[1:]:
             (date, time) = row[0:2]
             datestring = '%s %s' % (date, time)
