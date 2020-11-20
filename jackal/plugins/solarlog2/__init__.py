@@ -11,6 +11,7 @@ class solarlog2():
         lines = csv.reader(buf.splitlines(), delimiter=';')
         lines = list(lines)
         requests = []
+        method = 'POST'
         names = ['Pac', 'DaySum', 'Status', 'Error', 'Pdc1', 'Pdc2', 'Udc1', 'Udc2', 'Temp']
         l = len(names) + 1
         for row in lines[1:]:
@@ -22,8 +23,12 @@ class solarlog2():
             for offset in range(0, len(row), l):
                 wr = int(row[offset:offset + l][0])
                 measures = []
-                for idx, val in enumerate(names):
-                     measures.append({'measure_id': val, 'value': row[offset:offset + l][idx + 1]})
+                for idx, name in enumerate(names):
+                    value = row[offset:offset + l][idx + 1]
+                    # Wh -> KWh
+                    if name == 'DaySum':
+                        value *= 0.001
+                    measures.append({'measure_id': name, 'value': value})
                 json = {'client_id': self.clientid, 'at': ts, 'device_id': wr, 'measures': measures}
                 requests.append(json)
-        return requests
+        return requests, method

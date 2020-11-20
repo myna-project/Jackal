@@ -11,6 +11,7 @@ class schneider():
         lines = csv.reader(buf.splitlines(), delimiter=';')
         lines = list(lines)
         requests = []
+        method = 'POST'
         (gwname, gwns, gwip, gwmac, devname, devid, devtyp, devtypname, time, cron) = lines[1]
         bulks = lines[4][3:]
         for row in lines[7:]:
@@ -25,4 +26,4 @@ class schneider():
                 measures.append({'measure_id': bulks[id], 'value': row[id]})
             json = {'client_id': self.clientid, 'at': ts, 'device_id': int(devid), 'measures': measures}
             requests.append(json)
-        return requests
+        return requests, method

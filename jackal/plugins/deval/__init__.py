@@ -11,6 +11,7 @@ class deval():
         lines = csv.reader(buf.splitlines(), delimiter=';')
         lines = list(lines)
         requests = []
+        method = 'POST'
         for row in lines:
             (pod, num, measure_id, date, time) = row[0:5]
             dt = datetime.strptime('%s %s' % (date, time), '%d.%m.%y %H:%M')
@@ -29,7 +30,7 @@ class deval():
                     continue
                 finally:
                     td += timedelta(minutes=15)
-        return requests
+        return requests, method
 
     def __validate(self, date, time, length, dst):
         if time not in ('00:15', '02:15'):

@@ -29,7 +29,7 @@ __status__      = 'Production'
 __summary__     = 'Jackal is a modular python parser and IEnergyDa REST client.'
 __title__       = 'IEnergyDa Jackal'
 __uri__         = 'https://github.com/myna-project/Jackal'
-__version__     = 'v1.4.1'
+__version__     = 'v1.5.0'
 
 import configparser
 import datetime
@@ -47,10 +47,14 @@ from requests.packages.urllib3.util.retry import Retry
 from requests.exceptions import ConnectionError, ConnectTimeout, HTTPError, Timeout, ReadTimeout
 import schedule
 import signal
+import shutil
 import threading
 import time
+import urllib3
 import zipfile
 import zlib
+
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 class JLogger(logging.Logger):
 
@@ -156,7 +160,7 @@ class JRest:
             return True
         return False
 
-    def __post(self, data, url):
+    def __submit(self, data, method, url):
         if not self.__csrf:
             if not self.__get_token():
                 logger.error('Server %s forbids GET token requests. Check plugin and server configuration.' % (config.baseurl))
@@ -167,8 +171,15 @@ class JRest:
             auth = None
             if self.username and self.password:
                 auth = (self.username, self.password)
-            response = self.__client.post(url, auth=auth, json=data, headers=headers, timeout=self.timeout, verify=False, proxies=self.proxies)
-            logger.debug('POST %s JSON: %s' % (url, data))
+            if method == 'POST':
+                response = self.__client.post(url, auth=auth, json=data, headers=headers, timeout=self.timeout, verify=False, proxies=self.proxies)
+            if method == 'PUT':
+                response = self.__client.put(url, auth=auth, json=data, headers=headers, timeout=self.timeout, verify=False, proxies=self.proxies)
+            if method == 'PATCH':
+                response = self.__client.patch(url, auth=auth, json=data, headers=headers, timeout=self.timeout, verify=False, proxies=self.proxies)
+            if method == 'DELETE':
+                response = self.__client.delete(url, auth=auth, json=data, headers=headers, timeout=self.timeout, verify=False, proxies=self.proxies)
+            logger.debug('%s %s JSON: %s' % (method, url, data))
         except (ConnectionError, ConnectTimeout, ReadTimeout) as e:
             logger.error (str(e))
             return False
@@ -180,21 +191,23 @@ class JRest:
             if not self.__recursion:
                 self.__recursion = True
                 self.__csrf = None
-                return self.__post(data, url)
+                return self.__submit(data, method, url)
             else:
-                logger.error('Server %s forbids POST requests. Check plugin and server configuration (eg. authentication).' % (config.baseurl))
-                self.__recursion = False
+                logger.error('Server %s forbids %s requests. Check plugin and server configuration (eg. authentication).' % (config.baseurl, method))
+        self.__recursion = False
         return (response.status_code, response.text)
 
-    def post(self, data):
+    def submit(self, data, method = 'POST'):
         if not data:
+            return True
+        if not method in ['POST', 'PUT', 'PATCH', 'DELETE']:
             return False
         first = data[0]
         last = data[-1]
-        response = self.__post(data, self.drain)
+        response = self.__submit(data, method, self.drain)
         if response:
             status, text = response
-            logger.info('POST client id: %s timestamp interval: %s ~ %s measures: %d HTTP status code: %s %s' % (first['client_id'], first['at'], last['at'], len(data), status, text.splitlines()))
+            logger.info('%s client id: %s timestamp interval: %s ~ %s measures: %d HTTP status code: %s %s' % (method, first['client_id'], first['at'], last['at'], len(data), status, text.splitlines()))
         else:
             return False
         if status in (200, 201, 409):
@@ -227,8 +240,9 @@ class JApp():
                 okdir = config.get(name, 'okdir')
                 basedir = os.path.normpath(config.get(name, 'basedir'))
                 kodir = os.path.normpath(config.get(name, 'kodir'))
-                pattern = os.path.normpath(config.get(name, 'pattern'))
+                pattern = os.path.normpath(config.get(section, 'pattern', fallback='*'))
                 inotify = config.getboolean(name, 'inotify', fallback=False)
+                filtr = config.get(name, 'filter', fallback=None)
                 if not self.checkdir(basedir):
                     logger.warning('Plugin %s disabled' % name)
                     continue
@@ -254,6 +268,7 @@ class JApp():
             loaded_class.kodir = kodir
             loaded_class.pattern = pattern
             loaded_class.inotify = inotify
+            loaded_class.filtr = filtr
             self.__plugins.append(loaded_class())
         if not self.__plugins:
             logger.critical('No plugins enabled!')
@@ -309,7 +324,7 @@ class JThread(threading.Thread, pyinotify.ProcessEvent):
         if plugin.inotify:
             logger.debug('Watching directory "%s" for %s' % (plugin.basedir, plugin.pattern))
             self.notifier.start()
-            self.wm.add_watch(plugin.basedir, pyinotify.IN_CLOSE_WRITE)
+            self.wm.add_watch(plugin.basedir, pyinotify.IN_CLOSE_WRITE | pyinotify.IN_MOVED_TO)
 
     def run(self):
         logger.debug('Plugin %s thread started' % self.plugin.name)
@@ -321,17 +336,23 @@ class JThread(threading.Thread, pyinotify.ProcessEvent):
     def process_file(self, infile):
         okdir = self.plugin.okdir
         kodir = self.plugin.kodir
-        logger.info('Processing "%s"' % infile)
-        with open(infile, 'r') as f:
-            buf = f.read()
-        f.close()
+        if infile in (okdir, kodir):
+            return
+        if os.path.isfile(infile):
+            with open(infile, 'r') as f:
+                buf = f.read()
+            f.close()
+            logger.info('Processing "%s"' % infile)
+        else:
+            logger.error('Cannot open "%s"' % (infile))
+            return
         try:
-            data = self.plugin.parse(buf)
+            (data, method) = self.plugin.parse(buf)
         except (IndexError, ValueError, AttributeError) as e:
             logger.error('Cannot parse "%s", moving into "%s" (%s)' % (infile, kodir, str(e)))
             os.rename(infile, os.path.join(kodir, os.path.basename(infile)))
             return
-        if rest.post(data):
+        if rest.submit(data, method):
             logger.info('Moving "%s" into "%s"' % (infile, okdir))
             os.rename(infile, os.path.join(okdir, os.path.basename(infile)))
         else:
@@ -339,6 +360,12 @@ class JThread(threading.Thread, pyinotify.ProcessEvent):
             os.rename(infile, os.path.join(kodir, os.path.basename(infile)))
 
     def process_IN_CLOSE_WRITE(self, event):
+        self.__process_event(event)
+
+    def process_IN_MOVED_TO(self, event):
+        self.__process_event(event)
+
+    def __process_event(self, event):
         if not event.dir and event.path == self.plugin.basedir:
             infile = os.path.join(event.path, event.name)
             if fnmatch.filter([infile], self.plugin.pattern):
@@ -423,7 +450,7 @@ class JWebUpdate():
             return False
         gitlast = None
         while gitresp:
-            gitlast = gitresp.pop()
+            gitlast = gitresp.pop(0)
             if not gitlast.get('prerelease', False):
                 break
         if not gitlast:
@@ -474,7 +501,7 @@ def main(argv=None):
 
     # Check and read config file
     config = JConfig()
-    config.read('%s/%s.ini' % (os.getcwd(), __name__))
+    config.read(os.path.join(os.getcwd(), '%s.ini' % __name__))
 
     # Logging level setup
     logger.setup()
