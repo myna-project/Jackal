@@ -131,7 +131,8 @@ class pod():
                 self.__validate(dst, day, len(ers[day][dst]), 'Er')
                 for e in eas[day][dst]:
                     td = (int(e[1:]) - 1) * timedelta(minutes=15)
-                    ts = tz.normalize(tz.localize(dt + td, is_dst = bool(dst != '3'))).isoformat()                    ea = eas[day][dst][e]
+                    ts = tz.normalize(tz.localize(dt + td, is_dst = bool(dst != '3'))).isoformat()
+                    ea = eas[day][dst][e]
                     er = ers[day][dst][e]
                     measures = []
                     measures.append({'measure_id': 'Ea', 'value': float(ea)})

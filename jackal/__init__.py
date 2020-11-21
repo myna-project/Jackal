@@ -29,7 +29,7 @@ __status__      = 'Production'
 __summary__     = 'Jackal is a modular python parser and IEnergyDa REST client.'
 __title__       = 'IEnergyDa Jackal'
 __uri__         = 'https://github.com/myna-project/Jackal'
-__version__     = 'v1.5.0'
+__version__     = 'v1.5.1'
 
 import configparser
 import datetime
