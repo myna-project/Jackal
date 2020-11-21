@@ -240,7 +240,7 @@ class JApp():
                 okdir = config.get(name, 'okdir')
                 basedir = os.path.normpath(config.get(name, 'basedir'))
                 kodir = os.path.normpath(config.get(name, 'kodir'))
-                pattern = os.path.normpath(config.get(section, 'pattern', fallback='*'))
+                pattern = os.path.normpath(config.get(name, 'pattern', fallback='*'))
                 inotify = config.getboolean(name, 'inotify', fallback=False)
                 filtr = config.get(name, 'filter', fallback=None)
                 if not self.checkdir(basedir):
