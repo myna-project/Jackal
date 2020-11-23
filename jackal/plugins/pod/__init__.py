@@ -29,9 +29,9 @@ class pod():
 
         parsed = []
         requests = []
+        method = 'POST'
         for child in tree.iterchildren():
             measures = []
-            method = 'POST'
             if child.tag == 'IdentificativiFlusso':
                 continue
             Pod = str(child.Pod)
