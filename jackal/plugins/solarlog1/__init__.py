@@ -28,6 +28,9 @@ class solarlog1():
                     # Wh -> KWh
                     if name == 'DaySum':
                         value *= 0.001
+                    # W -> KW
+                    if name == 'Pac':
+                        value *= 0.001
                     measures.append({'measure_id': name, 'value': value})
                 json = {'client_id': self.clientid, 'at': ts, 'device_id': wr, 'measures': measures}
                 requests.append(json)
