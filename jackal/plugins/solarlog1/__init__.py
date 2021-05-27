@@ -11,7 +11,7 @@ class solarlog1():
         lines = csv.reader(buf.splitlines(), delimiter=';')
         lines = list(lines)
         requests = []
-        method = 'PUT'
+        method = 'POST'
         names = ['Pac', 'DaySum', 'Status', 'Error', 'Pdc1', 'Pdc2', 'Udc1', 'Udc2', 'Temp', 'Uac']
         l = len(names) + 1
         for row in lines[1:]:
