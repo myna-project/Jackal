@@ -367,10 +367,9 @@ class JThread(threading.Thread, pyinotify.ProcessEvent):
 
     def __process_event(self, event):
         if not event.dir and event.path == self.plugin.basedir:
-            infile = os.path.join(event.path, event.name)
-            if fnmatch.filter([infile], self.plugin.pattern):
-                logger.info('New or modified file detected: "%s"' % infile)
-                self.process_file(infile)
+            if fnmatch.fnmatch(event.name, self.plugin.pattern):
+                logger.info('Moved file detected: "%s"' % event.pathname)
+                self.process_file(event.pathname)
 
     def stop(self):
         if self.notifier.ident:
